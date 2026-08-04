@@ -11,26 +11,27 @@ struct MacSleepTimerApp: App {
         MenuBarExtra {
             VStack(alignment: .leading) {
                 if timerManager.isTimerRunning {
-                    Text("Đang đếm ngược: \(timerManager.timeRemainingString)")
+                    Text("Countdown: \(timerManager.timeRemainingString)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Button("Hủy hẹn giờ") {
+                    Button("Cancel Timer") {
                         timerManager.stopTimer()
                     }
                     Divider()
                 }
-                
-                Button("Sleep sau 1 phút (Test)") { timerManager.startTimer(minutes: 1) }
-                Button("Sleep sau 15 phút") { timerManager.startTimer(minutes: 15) }
-                Button("Sleep sau 30 phút") { timerManager.startTimer(minutes: 30) }
-                Button("Sleep sau 60 phút") { timerManager.startTimer(minutes: 60) }
-                Button("Sleep sau 90 phút") { timerManager.startTimer(minutes: 90) }
-                Button("Sleep sau 120 phút") { timerManager.startTimer(minutes: 120) }
-                
+                            
+                Button("15m") { timerManager.startTimer(minutes: 15) }
+                Button("30m") { timerManager.startTimer(minutes: 30) }
+                Button("45m") { timerManager.startTimer(minutes: 45) }
+                Button("1h") { timerManager.startTimer(minutes: 60) }
+                Button("1h15m") { timerManager.startTimer(minutes: 75) }
+                Button("1h30m") { timerManager.startTimer(minutes: 90) }
+                Button("2h") { timerManager.startTimer(minutes: 120) }
+               
                 Divider()
-                
-                Button("Thoát ứng dụng") {
+               
+                Button("Quit") {
                     NSApplication.shared.terminate(nil)
                 }
                 .keyboardShortcut("q")
@@ -47,7 +48,7 @@ class TimerManager: ObservableObject {
     @Published var menuIcon: NSImage = NSImage()
     
     private var shortTimeString = ""
-    private var remainingSeconds: TimeInterval = 0 // Biến lưu số giây thực tế
+    private var remainingSeconds: TimeInterval = 0
     private var timer: Timer?
     private var endTime: Date?
     
@@ -109,7 +110,7 @@ class TimerManager: ObservableObject {
     
     private func updateTimeString(remaining: TimeInterval? = nil) {
         let time = remaining ?? (endTime?.timeIntervalSinceNow ?? 0)
-        self.remainingSeconds = time // Lưu lại số giây để tính toán màu
+        self.remainingSeconds = time
         
         let totalMinutesForMenu = Int(time) / 60
         let seconds = Int(time) % 60
@@ -137,10 +138,8 @@ class TimerManager: ObservableObject {
             return
         }
         
-        // 1. Kiểm tra mốc 15 phút (900 giây)
         let isRedAlert = remainingSeconds <= 900
         
-        // 2. Chuyển màu text sang Đỏ nếu thỏa điều kiện
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 10, weight: .heavy),
             .foregroundColor: isRedAlert ? NSColor.systemRed : NSColor.black
@@ -157,8 +156,6 @@ class TimerManager: ObservableObject {
         if let moon = NSImage(systemSymbolName: "moon.fill", accessibilityDescription: nil) {
             var config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
             
-            // Nếu bật màu đỏ, buộc phải tô màu mặt trăng theo hệ thống (trắng/đen)
-            // vì chế độ tự động (Template) sẽ bị tắt để hiển thị được màu đỏ
             if isRedAlert {
                 config = config.applying(.init(hierarchicalColor: .labelColor))
             }
@@ -172,7 +169,6 @@ class TimerManager: ObservableObject {
         
         image.unlockFocus()
         
-        // 3. Tắt chế độ Template nếu đang hiển thị màu đỏ
         image.isTemplate = !isRedAlert
         
         self.menuIcon = image
