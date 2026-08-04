@@ -47,6 +47,7 @@ class TimerManager: ObservableObject {
     @Published var menuIcon: NSImage = NSImage()
     
     private var shortTimeString = ""
+    private var remainingSeconds: TimeInterval = 0 // Biến lưu số giây thực tế
     private var timer: Timer?
     private var endTime: Date?
     
@@ -89,6 +90,7 @@ class TimerManager: ObservableObject {
         isTimerRunning = false
         timeRemainingString = ""
         shortTimeString = ""
+        remainingSeconds = 0
         endTime = nil
         updateMenuIcon()
     }
@@ -107,6 +109,7 @@ class TimerManager: ObservableObject {
     
     private func updateTimeString(remaining: TimeInterval? = nil) {
         let time = remaining ?? (endTime?.timeIntervalSinceNow ?? 0)
+        self.remainingSeconds = time // Lưu lại số giây để tính toán màu
         
         let totalMinutesForMenu = Int(time) / 60
         let seconds = Int(time) % 60
@@ -134,13 +137,15 @@ class TimerManager: ObservableObject {
             return
         }
         
-        // 1. Áp dụng tinh chỉnh Font chữ của bạn
+        // 1. Kiểm tra mốc 15 phút (900 giây)
+        let isRedAlert = remainingSeconds <= 900
+        
+        // 2. Chuyển màu text sang Đỏ nếu thỏa điều kiện
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 10, weight: .heavy),
-            .foregroundColor: NSColor.black
+            .foregroundColor: isRedAlert ? NSColor.systemRed : NSColor.black
         ]
         
-        // 2. Tính toán linh hoạt chiều rộng khung ảnh
         let textSize = shortTimeString.size(withAttributes: textAttributes)
         let requiredWidth = max(24.0, 7.0 + textSize.width + 2.0)
         
@@ -149,19 +154,26 @@ class TimerManager: ObservableObject {
         
         image.lockFocus()
         
-        // 3. Vẽ mặt trăng trơn
         if let moon = NSImage(systemSymbolName: "moon.fill", accessibilityDescription: nil) {
-            let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+            var config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+            
+            // Nếu bật màu đỏ, buộc phải tô màu mặt trăng theo hệ thống (trắng/đen)
+            // vì chế độ tự động (Template) sẽ bị tắt để hiển thị được màu đỏ
+            if isRedAlert {
+                config = config.applying(.init(hierarchicalColor: .labelColor))
+            }
+            
             if let configuredMoon = moon.withSymbolConfiguration(config) {
                 configuredMoon.draw(at: NSPoint(x: 0, y: 1), from: .zero, operation: .sourceOver, fraction: 1.0)
             }
         }
         
-        // 4. Áp dụng tinh chỉnh Toạ độ của bạn
         shortTimeString.draw(at: NSPoint(x: 7, y: 6), withAttributes: textAttributes)
         
         image.unlockFocus()
-        image.isTemplate = true
+        
+        // 3. Tắt chế độ Template nếu đang hiển thị màu đỏ
+        image.isTemplate = !isRedAlert
         
         self.menuIcon = image
     }
