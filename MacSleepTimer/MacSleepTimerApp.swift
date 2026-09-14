@@ -138,39 +138,40 @@ class TimerManager: ObservableObject {
             return
         }
         
+        // --- Hiển thị kiểu digital clock (không icon) ---
         let isRedAlert = remainingSeconds <= 900
+        let timeColor: NSColor = isRedAlert ? .systemRed : NSColor(calibratedRed: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // vàng gold
         
         let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 10, weight: .heavy),
-            .foregroundColor: isRedAlert ? NSColor.systemRed : NSColor.black
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold),
+            .foregroundColor: timeColor
         ]
         
         let textSize = shortTimeString.size(withAttributes: textAttributes)
-        let requiredWidth = max(24.0, 7.0 + textSize.width + 2.0)
         
-        let imageSize = NSSize(width: requiredWidth, height: 18)
+        let paddingH: CGFloat = 7
+        let height: CGFloat = 18
+        let width = textSize.width + paddingH * 2
+        
+        let imageSize = NSSize(width: width, height: height)
         let image = NSImage(size: imageSize)
         
         image.lockFocus()
         
-        if let moon = NSImage(systemSymbolName: "moon.fill", accessibilityDescription: nil) {
-            var config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
-            
-            if isRedAlert {
-                config = config.applying(.init(hierarchicalColor: .labelColor))
-            }
-            
-            if let configuredMoon = moon.withSymbolConfiguration(config) {
-                configuredMoon.draw(at: NSPoint(x: 0, y: 1), from: .zero, operation: .sourceOver, fraction: 1.0)
-            }
-        }
+        // Nền bo tròn tối
+        let bgPath = NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: height),
+                                  xRadius: 5, yRadius: 5)
+        NSColor(calibratedWhite: 0.15, alpha: 0.95).setFill()
+        bgPath.fill()
         
-        shortTimeString.draw(at: NSPoint(x: 7, y: 6), withAttributes: textAttributes)
+        // Thời gian
+        let textX = paddingH
+        let textY = (height - textSize.height) / 2
+        shortTimeString.draw(at: NSPoint(x: textX, y: textY), withAttributes: textAttributes)
         
         image.unlockFocus()
         
-        image.isTemplate = !isRedAlert
-        
+        image.isTemplate = false
         self.menuIcon = image
     }
     
