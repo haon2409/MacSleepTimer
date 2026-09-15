@@ -64,8 +64,12 @@ class TimerManager: ObservableObject {
     }
     
     @objc private func handleSleep() {
-        DispatchQueue.main.async {
-            self.stopTimer()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            // Chỉ thực hiện dừng timer nếu timer đang trong trạng thái chạy
+            if self.isTimerRunning {
+                self.stopTimer()
+            }
         }
     }
     
