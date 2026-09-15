@@ -132,8 +132,33 @@ class TimerManager: ObservableObject {
     private func updateMenuIcon() {
         if !isTimerRunning {
             if let defaultIcon = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: nil) {
-                defaultIcon.isTemplate = true
-                self.menuIcon = defaultIcon
+                
+                let yellowColor = NSColor(calibratedRed: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+                let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .bold)
+                    .applying(.init(hierarchicalColor: yellowColor))
+                
+                let sourceIcon = defaultIcon.withSymbolConfiguration(config) ?? defaultIcon
+                
+                // 1. Tạo một khung ảnh trống có kích thước chuẩn của thanh menu (22x22)
+                let canvasSize = NSSize(width: 22, height: 22)
+                let canvasImage = NSImage(size: canvasSize)
+                
+                canvasImage.lockFocus()
+                
+                let iconSize = sourceIcon.size
+                let x = (canvasSize.width - iconSize.width) / 2
+                
+                // 2. Đẩy toạ độ Y lên trên thông qua yOffset
+                let yOffset: CGFloat = 1.0 // Tăng/giảm số này để điều chỉnh độ cao (VD: 1.0, 2.0, 3.0)
+                let y = (canvasSize.height - iconSize.height) / 2 + yOffset
+                
+                // Vẽ icon vào khung ảnh trống
+                sourceIcon.draw(in: NSRect(x: x, y: y, width: iconSize.width, height: iconSize.height))
+                
+                canvasImage.unlockFocus()
+                
+                canvasImage.isTemplate = false
+                self.menuIcon = canvasImage
             }
             return
         }
@@ -142,15 +167,17 @@ class TimerManager: ObservableObject {
         let isRedAlert = remainingSeconds <= 900
         let timeColor: NSColor = isRedAlert ? .systemRed : NSColor(calibratedRed: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // vàng gold
         
+        // 1. Giảm độ dày font chữ xuống .medium (hoặc .regular) và giữ size 13
         let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium),
             .foregroundColor: timeColor
         ]
         
         let textSize = shortTimeString.size(withAttributes: textAttributes)
         
-        let paddingH: CGFloat = 7
-        let height: CGFloat = 18
+        // 2. Tăng lề ngang và chiều cao khung bao
+        let paddingH: CGFloat = 4
+        let height: CGFloat = 20
         let width = textSize.width + paddingH * 2
         
         let imageSize = NSSize(width: width, height: height)
@@ -158,9 +185,9 @@ class TimerManager: ObservableObject {
         
         image.lockFocus()
         
-        // Nền bo tròn tối
+        // 3. Vẽ nền bo tròn (chỉnh bán kính bo góc cho phù hợp với khung lớn)
         let bgPath = NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: height),
-                                  xRadius: 5, yRadius: 5)
+                                  xRadius: 4, yRadius: 4) // Giảm bo góc từ 5 xuống 4 để tỷ lệ chuẩn hơn
         NSColor(calibratedWhite: 0.15, alpha: 0.95).setFill()
         bgPath.fill()
         
