@@ -2,6 +2,7 @@ import SwiftUI
 import Foundation
 import Combine
 import AppKit
+import AudioToolbox
 
 @main
 struct MacSleepTimerApp: App {
@@ -51,9 +52,17 @@ class TimerManager: ObservableObject {
     private var remainingSeconds: TimeInterval = 0
     private var timer: Timer?
     private var endTime: Date?
+    private var hasPlayedWarning = false
+    
+    // Giữ reference sound
+    private var warningSound: NSSound?
     
     init() {
         updateMenuIcon()
+        
+        // Preload sound
+        warningSound = NSSound(named: NSSound.Name("Glass"))
+        warningSound?.volume = 1.0
         
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -66,7 +75,6 @@ class TimerManager: ObservableObject {
     @objc private func handleSleep() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            // Chỉ thực hiện dừng timer nếu timer đang trong trạng thái chạy
             if self.isTimerRunning {
                 self.stopTimer()
             }
@@ -76,6 +84,7 @@ class TimerManager: ObservableObject {
     func startTimer(minutes: Int) {
         stopTimer()
         isTimerRunning = true
+        hasPlayedWarning = false
         let duration = TimeInterval(minutes * 60)
         endTime = Date().addingTimeInterval(duration)
         updateTimeString()
@@ -97,6 +106,7 @@ class TimerManager: ObservableObject {
         shortTimeString = ""
         remainingSeconds = 0
         endTime = nil
+        hasPlayedWarning = false
         updateMenuIcon()
     }
     
@@ -108,7 +118,32 @@ class TimerManager: ObservableObject {
             stopTimer()
             sleepMac()
         } else {
+            if remaining <= 180 && !hasPlayedWarning {
+                playWarningSound()
+                hasPlayedWarning = true
+            }
             updateTimeString(remaining: remaining)
+        }
+    }
+    
+    private func playWarningSound() {
+        guard let sound = warningSound else {
+            // Fallback
+            for i in 0..<20 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 1.0) {
+                    AudioServicesPlaySystemSound(1005)
+                }
+            }
+            return
+        }
+        
+        sound.volume = 1.0
+        
+        // Tràng chuông dài khoảng 10 giây
+        for i in 0..<10 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 1.0) {
+                sound.play()
+            }
         }
     }
     
@@ -143,7 +178,6 @@ class TimerManager: ObservableObject {
                 
                 let sourceIcon = defaultIcon.withSymbolConfiguration(config) ?? defaultIcon
                 
-                // 1. Tạo một khung ảnh trống có kích thước chuẩn của thanh menu (22x22)
                 let canvasSize = NSSize(width: 22, height: 22)
                 let canvasImage = NSImage(size: canvasSize)
                 
@@ -152,11 +186,9 @@ class TimerManager: ObservableObject {
                 let iconSize = sourceIcon.size
                 let x = (canvasSize.width - iconSize.width) / 2
                 
-                // 2. Đẩy toạ độ Y lên trên thông qua yOffset
-                let yOffset: CGFloat = 1.0 // Tăng/giảm số này để điều chỉnh độ cao (VD: 1.0, 2.0, 3.0)
+                let yOffset: CGFloat = 1.0
                 let y = (canvasSize.height - iconSize.height) / 2 + yOffset
                 
-                // Vẽ icon vào khung ảnh trống
                 sourceIcon.draw(in: NSRect(x: x, y: y, width: iconSize.width, height: iconSize.height))
                 
                 canvasImage.unlockFocus()
@@ -167,11 +199,9 @@ class TimerManager: ObservableObject {
             return
         }
         
-        // --- Hiển thị kiểu digital clock (không icon) ---
         let isRedAlert = remainingSeconds <= 900
-        let timeColor: NSColor = isRedAlert ? .systemRed : NSColor(calibratedRed: 1.0, green: 0.84, blue: 0.0, alpha: 1.0) // vàng gold
+        let timeColor: NSColor = isRedAlert ? .systemRed : NSColor(calibratedRed: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
         
-        // 1. Giảm độ dày font chữ xuống .medium (hoặc .regular) và giữ size 13
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium),
             .foregroundColor: timeColor
@@ -179,7 +209,6 @@ class TimerManager: ObservableObject {
         
         let textSize = shortTimeString.size(withAttributes: textAttributes)
         
-        // 2. Tăng lề ngang và chiều cao khung bao
         let paddingH: CGFloat = 4
         let height: CGFloat = 20
         let width = textSize.width + paddingH * 2
@@ -189,13 +218,11 @@ class TimerManager: ObservableObject {
         
         image.lockFocus()
         
-        // 3. Vẽ nền bo tròn (chỉnh bán kính bo góc cho phù hợp với khung lớn)
         let bgPath = NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: width, height: height),
-                                  xRadius: 4, yRadius: 4) // Giảm bo góc từ 5 xuống 4 để tỷ lệ chuẩn hơn
+                                  xRadius: 4, yRadius: 4)
         NSColor(calibratedWhite: 0.15, alpha: 0.95).setFill()
         bgPath.fill()
         
-        // Thời gian
         let textX = paddingH
         let textY = (height - textSize.height) / 2
         shortTimeString.draw(at: NSPoint(x: textX, y: textY), withAttributes: textAttributes)
